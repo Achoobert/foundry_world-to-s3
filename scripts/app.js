@@ -96,7 +96,7 @@ function renderPlan(plan) {
 }
 
 function renderResult(r) {
-  return `<p><b>Done.</b> ${r.map.size} files uploaded, ${r.updated} documents updated.</p>
+  return `<p><b>Done.</b> ${r.map.size - r.reused.length} files uploaded, ${r.reused.length} already on S3 (linked, not uploaded), ${r.updated} documents updated.</p>
     ${r.failed.length ? `<p class="notification error">${r.failed.length} uploads failed (see console):</p><ul>${r.failed.map((p) => `<li><code>${esc(p)}</code></li>`).join("")}</ul>` : ""}
     <p>A "World to S3 log" journal lists every move.</p>`;
 }

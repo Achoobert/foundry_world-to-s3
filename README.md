@@ -24,6 +24,8 @@ Foundry VTT v14 module. Copies every image a world uses from `worlds/...` to you
 
 Running again is safe: anything already on S3 is no longer a `worlds/` path, so it is skipped.
 
+If a file with the same name is already in the S3 folder (another world uploaded it from a shared compendium or journal), it is not uploaded again. Documents are pointed at the existing URL.
+
 ## Dev
 
 ```sh

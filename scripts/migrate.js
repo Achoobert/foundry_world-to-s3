@@ -109,25 +109,48 @@ export async function uploadToS3(path, name, folder) {
   return result.path;
 }
 
+/** Default lister: files already in an S3 folder, as {filename: url}. A missing folder is empty. */
+export async function listS3(folder) {
+  const { bucket } = getTarget();
+  const result = await foundry.applications.apps.FilePicker.implementation
+    .browse("s3", folder, { bucket })
+    .catch(() => null);
+  const found = new Map();
+  for (const url of result?.files ?? []) found.set(decodeURIComponent(url.split("/").pop()), url);
+  return found;
+}
+
 /**
  * Upload every file in the plan and point documents at the new URLs.
+ * A file whose name is already in its S3 folder is not uploaded again; docs point at the
+ * existing URL. Another world may have uploaded it from a shared compendium or journal.
  * @param {object} plan  from scan()
  * @param {object} [opts]
  * @param {Function} [opts.upload]  (path, name, folder) => url; swapped out in tests
+ * @param {Function} [opts.list]  (folder) => Map of filename to url; swapped out in tests
  * @param {Function} [opts.onProgress]  (done, total, label)
  * @param {boolean} [opts.writeLog]  create the log journal and manifest
  */
-export async function migrate(plan, { upload = uploadToS3, onProgress = () => {}, writeLog = true } = {}) {
+export async function migrate(
+  plan,
+  { upload = uploadToS3, list = listS3, onProgress = () => {}, writeLog = true } = {},
+) {
   const { prefix } = getTarget();
   const map = new Map();
   const failed = [];
+  const reused = [];
+  const listings = new Map();
   const todo = [...plan.files.entries()].filter(([p]) => !plan.missing.includes(p));
   const total = todo.length + plan.docs.length;
   let done = 0;
 
   await runPool(todo, 4, async ([path, entry]) => {
+    const folder = `${prefix}/${sourceWorld(path)}`;
     try {
-      map.set(path, await upload(path, entry.name, `${prefix}/${sourceWorld(path)}`));
+      if (!listings.has(folder)) listings.set(folder, list(folder));
+      const existing = (await listings.get(folder)).get(entry.name);
+      if (existing) reused.push(path);
+      map.set(path, existing ?? (await upload(path, entry.name, folder)));
     } catch (err) {
       console.error(`${MODULE_ID} |`, err);
       failed.push(path);
@@ -154,7 +177,7 @@ export async function migrate(plan, { upload = uploadToS3, onProgress = () => {}
     for (const pack of plan.unlockPacks) await pack.configure({ locked: true });
   }
 
-  const result = { map, failed, updated, missing: plan.missing, skippedPacks: plan.skippedPacks };
+  const result = { map, failed, reused, updated, missing: plan.missing, skippedPacks: plan.skippedPacks };
   if (writeLog && map.size) await writeManifest(plan, result, upload === uploadToS3);
   return result;
 }
@@ -166,6 +189,7 @@ async function writeManifest(plan, result, toS3) {
   const rows = [...result.map].map(([path, url]) => ({
     from: path,
     to: url,
+    reused: result.reused.includes(path),
     usages: plan.files.get(path).usages,
   }));
   if (toS3) {
@@ -179,8 +203,13 @@ async function writeManifest(plan, result, toS3) {
   }
   const esc = foundry.utils.escapeHTML ?? ((s) => s);
   const content =
-    `<p>${rows.length} files moved, ${result.updated} documents updated.</p><ul>` +
-    rows.map((r) => `<li><code>${esc(r.from)}</code> → <a href="${esc(r.to)}">${esc(r.to)}</a></li>`).join("") +
+    `<p>${rows.length} files moved (${result.reused.length} already on S3), ${result.updated} documents updated.</p><ul>` +
+    rows
+      .map(
+        (r) =>
+          `<li><code>${esc(r.from)}</code> → <a href="${esc(r.to)}">${esc(r.to)}</a>${r.reused ? " <i>(already on S3)</i>" : ""}</li>`,
+      )
+      .join("") +
     "</ul>";
   await JournalEntry.create({
     name: `World to S3 log ${stamp}`,

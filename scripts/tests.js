@@ -115,8 +115,9 @@ export function registerTests(quench) {
             calls.push({ path, name, folder });
             return `https://fake-bucket.s3/${folder}/${name}`;
           };
-          const result = await migrate(plan, { upload, writeLog: false });
+          const result = await migrate(plan, { upload, list: async () => new Map(), writeLog: false });
           assert.equal(result.failed.length, 0);
+          assert.equal(result.reused.length, 0);
           assert.equal(calls.length, 4);
 
           const art = calls.find((c) => c.path.endsWith(ORIGINAL));
@@ -147,6 +148,50 @@ export function registerTests(quench) {
 
         it("a second scan finds nothing left to move", () => {
           assert.equal(planFor([journal, scene]).files.size, 0);
+        });
+      });
+
+      describe("migrate when the file is already on S3", () => {
+        let journal;
+
+        before(async () => {
+          journal = await JournalEntry.create({
+            name: "W2S3 Shared Journal",
+            pages: [
+              { name: "Shared", type: "image", src: "worlds/other-world/assets/shared.png" },
+              { name: "New", type: "image", src: "worlds/other-world/assets/new.png" },
+            ],
+          });
+        });
+
+        after(async () => {
+          await journal?.delete();
+        });
+
+        it("skips the upload and links the existing URL", async () => {
+          const plan = planFor([journal]);
+          const existingUrl =
+            "https://fake-bucket.s3/assets/world_uploads/other-world/W2S3_Shared_Journal_Shared_shared.png";
+          const listed = [];
+          const list = async (folder) => {
+            listed.push(folder);
+            return new Map([["W2S3_Shared_Journal_Shared_shared.png", existingUrl]]);
+          };
+          const calls = [];
+          const upload = async (path, name, folder) => {
+            calls.push(name);
+            return `https://fake-bucket.s3/${folder}/${name}`;
+          };
+          const result = await migrate(plan, { upload, list, writeLog: false });
+
+          assert.deepEqual(calls, ["W2S3_Shared_Journal_New_new.png"]);
+          assert.deepEqual(result.reused, ["worlds/other-world/assets/shared.png"]);
+          assert.deepEqual(listed, ["assets/world_uploads/other-world"]);
+          assert.equal(journal.pages.getName("Shared").src, existingUrl);
+          assert.equal(
+            journal.pages.getName("New").src,
+            "https://fake-bucket.s3/assets/world_uploads/other-world/W2S3_Shared_Journal_New_new.png",
+          );
         });
       });
     },
