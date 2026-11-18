@@ -96,6 +96,7 @@ export function registerTests(quench) {
           scene = await Scene.create({
             name: "W2S3 Test Scene",
             background: { src: `worlds/${world}/assets/scenes/bg.png` },
+            thumb: `worlds/${world}/assets/scenes/thumb.webp`,
             tiles: [{ texture: { src: `worlds/${world}/assets/tiles/t.png` }, width: 100, height: 100 }],
           });
           created.push(journal, scene);
@@ -140,6 +141,8 @@ export function registerTests(quench) {
             scene.tiles.contents[0].texture.src,
             `https://fake-bucket.s3/assets/world_uploads/${world}/W2S3_Test_Scene_t.png`,
           );
+          assert.isFalse(calls.some((c) => c.path.includes("thumb")));
+          assert.equal(scene.thumb, `worlds/${world}/assets/scenes/thumb.webp`);
         });
 
         it("a second scan finds nothing left to move", () => {

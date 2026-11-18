@@ -5,6 +5,9 @@ export const MODULE_ID = "world-to-s3";
 // Document types with no images worth moving, or whose updates are risky.
 const SKIP_TYPES = new Set(["Setting", "FogExploration", "Combat"]);
 
+// Fields never moved. Scene `thumb` is a thumbnail Foundry generates; it is left as is.
+const SKIP_FIELDS = ["thumb"];
+
 /** Bucket and key prefix from settings, with fallbacks. */
 export function getTarget() {
   const bucket = game.settings.get(MODULE_ID, "bucket") || game.data.files.s3?.buckets?.[0] || null;
@@ -25,7 +28,7 @@ function scanDoc(doc, parts, plan) {
   if (doc.getFlag?.(MODULE_ID, "log")) return;
   const fields = embeddedFields(doc);
   const own = doc.toObject();
-  for (const f of fields) delete own[f];
+  for (const f of [...fields, ...SKIP_FIELDS]) delete own[f];
   const paths = findLocalPaths(own);
   if (paths.size) {
     plan.docs.push({ doc, own, label: parts.join(" / ") });
