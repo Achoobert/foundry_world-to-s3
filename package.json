@@ -1,0 +1,21 @@
+{
+  "name": "world-to-s3",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Foundry VTT module: move world images to S3 and relink them",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/sync.js",
+    "watch": "node tools/sync.js --watch",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "test:e2e": "cypress run --headless --browser chrome",
+    "test:e2e:open": "cypress open"
+  },
+  "devDependencies": {
+    "cypress": "^15.17.0",
+    "cypress-if": "^1.13.2",
+    "oxfmt": "^0.74.0"
+  }
+}

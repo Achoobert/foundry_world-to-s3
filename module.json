@@ -1,0 +1,19 @@
+{
+  "id": "world-to-s3",
+  "title": "World to S3",
+  "description": "Copy world images (and images borrowed from other worlds) to S3, rename them after where they are used, and relink every document and compendium.",
+  "authors": [
+    {
+      "name": "Isaac Schubert"
+    }
+  ],
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "14",
+    "verified": "14"
+  },
+  "esmodules": ["scripts/main.js"],
+  "url": "https://github.com/Achoobert/foundry_world-to-s3",
+  "manifest": "https://github.com/Achoobert/foundry_world-to-s3/releases/latest/download/module.json",
+  "download": "https://github.com/Achoobert/foundry_world-to-s3/releases/latest/download/module.zip"
+}
